@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, BrowserView, shell, ipcMain, session, protocol } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -35,6 +35,10 @@ if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
   sourceMapSupport.install();
 }
+
+
+
+
 
 const isDebug =
   process.env.NODE_ENV === 'development' || process.env.DEBUG_PROD === 'true';
@@ -83,6 +87,27 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
+
+  const view = new BrowserView()
+  mainWindow.setBrowserView(view)
+  view.setBounds({ x: 0, y: 500, width: 300, height: 300 })
+  setTimeout(() => {
+    console.log("LOADING")
+    view.webContents.loadURL('https://www.google.com/')
+  }, 1000)
+  console.log(view.webContents.session)
+
+  // const filter = {
+  //   urls: ['https://*.github.com/*', '*://electron.github.io/*']
+  // }
+  //
+  // session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+  // // chrome.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+  //   console.log("MAJOR REQUEST")
+  //   details.requestHeaders['User-Agent'] = 'MyAgent'
+  //   callback({ requestHeaders: details.requestHeaders })
+  // })
+  //
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -92,6 +117,27 @@ const createWindow = async () => {
     } else {
       mainWindow.show();
     }
+    console.log(view.webContents.session.webRequest)
+    view.webContents.session.webRequest.onBeforeRequest({
+      urls: ['https://*/*','http://*/*']
+    }, (details, callback) => {
+      console.log(details.url)
+      if (details.url.includes('google.com'))
+        callback({ redirectURL: details.url.replace('google.com', 'google.co.uk') })
+      // else callback({ url: details.url })
+      // console.log("MAJOR REQUEST", details.url, details.url.replace('electronjs.org', 'google.com'))
+      // details.url = details.url.replace('electronjs.org', 'google.com')
+      // details.requestHeaders['User-Agent'] = 'MyAgent'
+      // callback({ redirectURL: details.url })
+    })
+    //
+    // protocol.interceptBufferProtocol("http", (request, result) => {
+    //   console.log('reqy', request.url)
+    //   // return result
+    //   // if (request.url === "http://www.google.com")
+    //   //   return result(content);
+    //   // ... // fetch other http protocol content and return to the electron
+    // });
   });
 
   mainWindow.on('closed', () => {
